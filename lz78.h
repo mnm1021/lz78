@@ -4,7 +4,7 @@
 #include <string>
 #include <map>
 
-//#include "bit_string.h"
+#include "bit_string.h"
 
 /**
  * a simple binary trie node.
@@ -50,7 +50,9 @@ void deleteTrie (trie* root)
 		deleteTrie (root->children[1]);
 	}
 #else
-	for (auto it = root->children.begin (); it != root->children.end (); ++it)
+	for (std::map<char, trie*>::iterator it = root->children.begin ();
+			it != root->children.end ();
+			++it)
 	{
 		deleteTrie (it->second);
 	}
@@ -58,6 +60,12 @@ void deleteTrie (trie* root)
 	delete root;
 }
 
+std::string int_to_string (int i)
+{
+	std::stringstream ss;
+	ss << i;
+	return ss.str();
+}
 
 
 /**
@@ -98,10 +106,10 @@ std::string lz78_encode (std::string input)
 			current->children[key] = child;
 
 			/* add to output */
-			output += std::to_string(current->value);
+			output += int_to_string(current->value);
 			output += ' ';
 #ifdef __BIT_STRING_H__
-			output += std::to_string(key);
+			output += int_to_string(key);
 #else
 			output += key;
 #endif
@@ -122,7 +130,7 @@ std::string lz78_encode (std::string input)
 			/* add to output if current index is at the end of string */
 			if (idx == input_binary.length())
 			{
-				output += std::to_string(current->value);
+				output += int_to_string(current->value);
 			}
 		}
 	}
@@ -160,7 +168,7 @@ std::string lz78_decode (std::string input)
 		{
 #ifdef __BIT_STRING_H__
 			token_stream >> output_num;
-			std::string decoded_binary = dictionary[node_num] + std::to_string(output_num);
+			std::string decoded_binary = dictionary[node_num] + int_to_string(output_num);
 #else
 			char delim, ch;
 			token_stream >> std::noskipws;

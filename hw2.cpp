@@ -18,10 +18,13 @@ int main(int argc, char** argv)
 	str_stream << input_file.rdbuf();
 	input = str_stream.str();
 
+	cout << "encoding..." << endl;
 	encoded_string = lz78_encode (input);
 
+	cout << "encoding finished. writing to file..." << endl;
 	encoded_file << encoded_string;
 
+	cout << "decoding..." << endl;
 	decoded_file << lz78_decode (encoded_string);
 
 	return 0;

@@ -12,11 +12,7 @@
 struct trie
 {
 	int value;
-#ifdef __BIT_STRING_H__
-	struct trie* children[2];
-#else
 	std::map<char,struct trie*> children;
-#endif
 };
 typedef struct trie trie;
 
@@ -27,9 +23,6 @@ trie* createTrie ()
 {
 	trie* root = new trie;
 	root->value = 0;
-#ifdef __BIT_STRING_H__
-	root->children[0] = root->children[1] = NULL;
-#endif
 
 	return root;
 }
@@ -39,34 +32,24 @@ trie* createTrie ()
  */
 void deleteTrie (trie* root)
 {
-#ifdef __BIT_STRING_H__
-	if (root->children[0])
-	{
-		deleteTrie (root->children[0]);
-	}
-
-	if (root->children[1])
-	{
-		deleteTrie (root->children[1]);
-	}
-#else
 	for (std::map<char, trie*>::iterator it = root->children.begin ();
 			it != root->children.end ();
 			++it)
 	{
 		deleteTrie (it->second);
 	}
-#endif
+
 	delete root;
 }
 
-std::string int_to_string (int i)
-{
-	std::stringstream ss;
-	ss << i;
-	return ss.str();
-}
 
+/**
+ * get appropriate bit length for convert
+ */
+int get_bit_length (int idx)
+{
+	return (idx != 1) ? ceil (log2 (idx)) : 1;
+}
 
 /**
  * lz78 compression algorithm
@@ -75,52 +58,30 @@ std::string lz78_encode (std::string input)
 {
 	int idx = 0;
 	int node_num = 1;
-	std::string input_binary, output = "";
+	std::string output_binary = "";
 	trie* root = createTrie ();
 	trie* current = root;
 
-#ifdef __BIT_STRING_H__
-	input_binary = convertStringToBinary (input);
-#else
-	input_binary = input;
-#endif
-
-	while (idx < input_binary.length())
+	while (idx < input.length ())
 	{
-#ifdef __BIT_STRING_H__
-		int key = input_binary[idx++] - '0';
-
-		if (current->children[key] == NULL)
-#else
-		char key = input_binary[idx++];
+		char key = input[idx++];
 
 		if (current->children.find (key) == current->children.end ())
-#endif
 		{
 			/* put new node on trie */
 			trie* child = new trie;
-			child->value = node_num++;
-#ifdef __BIT_STRING_H__
-			child->children[0] = child->children[1] = NULL;
-#endif
+			child->value = node_num;
 			current->children[key] = child;
 
-			/* add to output */
-			output += int_to_string(current->value);
-			output += ' ';
-#ifdef __BIT_STRING_H__
-			output += int_to_string(key);
-#else
-			output += key;
-#endif
-
-			if (idx != input_binary.length())
-			{
-				output += '/';
-			}
+			/* add to binary output */
+			int num_bits = get_bit_length (node_num);
+			output_binary += convertIntToBinary (current->value, num_bits);
+//			output_binary += convertStringToBinary (std::string (1, key));
+			output_binary += convertCharToBinary (key);
 
 			/* reset current node */
 			current = root;
+			++node_num;
 		}
 		else
 		{
@@ -128,16 +89,17 @@ std::string lz78_encode (std::string input)
 			current = current->children[key];
 
 			/* add to output if current index is at the end of string */
-			if (idx == input_binary.length())
+			if (idx == input.length ())
 			{
-				output += int_to_string(current->value);
+				int num_bits = get_bit_length (node_num);
+				output_binary += convertIntToBinary (current->value, num_bits);
 			}
 		}
 	}
 
 	deleteTrie (root);
 
-	return output;
+	return convertBinaryToString (output_binary);
 }
 
 /**
@@ -146,49 +108,41 @@ std::string lz78_encode (std::string input)
 std::string lz78_decode (std::string input)
 {
 	int idx = 0, dict_idx = 1;
-	std::string token, output_binary = "";
-	std::stringstream input_stream (input);
+	std::string token, output = "";
+	std::string input_binary = convertStringToBinary (input);
 	std::map<int,std::string> dictionary;
+	int input_length = input_binary.length ();
 
 	dictionary[0] = "";
 
-	while (std::getline (input_stream, token, '/'))
+	while (idx < input_length)
 	{
-		int node_num, output_num;
-		std::stringstream token_stream (token);
+		/* read code number */
+		int num_bits = get_bit_length (dict_idx);
+		int node_num = convertBinaryToInt (input_binary.substr (idx, num_bits));
 
-		token_stream >> node_num;
+		idx += num_bits;
 
-		if (token_stream.eof ())
+		/* add the string on dictionary to output */
+		output += dictionary[node_num];
+
+		if (idx + 6 <= input_length)
 		{
-			/* just add binary string to output */
-			output_binary += dictionary[node_num];
-		}
-		else
-		{
-#ifdef __BIT_STRING_H__
-			token_stream >> output_num;
-			std::string decoded_binary = dictionary[node_num] + int_to_string(output_num);
-#else
-			char delim, ch;
-			token_stream >> std::noskipws;
-			token_stream >> delim >> ch;
-			std::string decoded_binary = dictionary[node_num] + ch;
-#endif
+			/* get output character and add to output */
+			char out_ch = convertBinaryToChar (input_binary.substr (idx, 7));
+			if (out_ch != 0)
+			{
+				output += out_ch;
 
-			/* add binary string to output */
-			output_binary += decoded_binary;
+				/* add new binary string to dictionary */
+				dictionary[dict_idx++] = dictionary[node_num] + out_ch;
+			}
 
-			/* add new binary string to dictionary */
-			dictionary[dict_idx++] = decoded_binary;
+			idx += 7;
 		}
 	}
 
-#ifdef __BIT_STRING_H__
-	return convertBinaryToString (output_binary);
-#else
-	return output_binary;
-#endif
+	return output;
 }
 
 #endif // __LZ78_H__
